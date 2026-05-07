@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImageOpt — Client-Side Image Compressor</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --text: #e0e0e0;
+    --text2: #999;
+    --accent: #7c5cfc;
+    --accent2: #5b3cf0;
+    --gold: #f0b90b;
+    --gold2: #d4a30a;
+    --danger: #e05555;
+    --success: #3cb878;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{font-size:16px;scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;
+    background:var(--bg);color:var(--text);min-height:100vh;
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  .container{max-width:720px;margin:0 auto;padding:20px 16px 40px}
+
+  /* Header */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:24px;
+  }
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo svg{width:36px;height:36px}
+  .logo h1{font-size:1.4rem;font-weight:700;letter-spacing:-0.5px}
+  .logo span{color:var(--accent)}
+  .badge{
+    background:var(--gold);color:#000;font-size:0.7rem;font-weight:700;
+    padding:3px 8px;border-radius:20px;letter-spacing:0.5px;
+    text-transform:uppercase;
+  }
+  .badge.premium{background:var(--accent);color:#fff}
+
+  /* Tier status */
+  .tier-status{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--surface);border-radius:var(--radius);
+    padding:12px 18px;margin-bottom:20px;border:1px solid var(--border);
+  }
+  .tier-status p{flex:1;font-size:0.9rem}
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:10px 20px;border-radius:var(--radius-sm);font-weight:600;
+    font-size:0.9rem;cursor:pointer;border:none;transition:all 0.2s;
+    text-decoration:none;white-space:nowrap;
+  }
+  .btn-accent{background:var(--accent);color:#fff}
+  .btn-accent:hover{background:var(--accent2);transform:translateY(-1px)}
+  .btn-gold{background:var(--gold);color:#000}
+  .btn-gold:hover{background:var(--gold2);transform:translateY(-1px)}
+  .btn-outline{
+    background:transparent;border:1px solid var(--border);color:var(--text);
+  }
+  .btn-outline:hover{background:var(--surface2)}
+  .btn-sm{padding:6px 14px;font-size:0.8rem}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+  /* Drop zone */
+  .dropzone{
+    border:2px dashed var(--border);border-radius:var(--radius);
+    padding:40px 20px;text-align:center;cursor:pointer;
+    transition:all 0.25s;background:var(--surface);
+    margin-bottom:20px;position:relative;
+  }
+  .dropzone.dragover{border-color:var(--accent);background:rgba(124,92,252,0.08)}
+  .dropzone svg{width:48px;height:48px;color:var(--text2);margin-bottom:12px}
+  .dropzone h3{font-size:1.05rem;margin-bottom:6px;color:var(--text)}
+  .dropzone p{font-size:0.85rem;color:var(--text2)}
+  .dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+  /* File list */
+  .file-list{list-style:none;margin-bottom:16px}
+  .file-item{
+    display:flex;align-items:center;gap:10px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:8px;
+  }
+  .file-item .thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0}
+  .file-item .info{flex:1;min-width:0}
+  .file-item .name{font-size:0.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .file-item .meta{font-size:0.75rem;color:var(--text2)}
+  .file-item .remove{
+    background:none;border:none;color:var(--danger);cursor:pointer;
+    font-size:1.2rem;line-height:1;padding:0 4px;
+  }
+
+  /* Controls */
+  .controls{
+    background:var(--surface);border-radius:var(--radius);
+    border:1px solid var(--border);padding:18px;margin-bottom:20px;
+  }
+  .control-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .control-row + .control-row{margin-top:14px}
+  .control-row label{font-size:0.85rem;font-weight:600;min-width:70px;color:var(--text2)}
+  .control-row input[type=range]{flex:1;min-width:120px;accent-color:var(--accent)}
+  .control-row .val{font-size:0.85rem;font-weight:700;min-width:36px;text-align:right}
+  .control-row select{
+    padding:8px 12px;border-radius:var(--radius-sm);background:var(--surface2);
+    border:1px solid var(--border);color:var(--text);font-size:0.85rem;
+  }
+
+  /* Batch selector */
+  .batch-selector{
+    background:var(--surface);border:1px solid var(--accent);
+    border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;
+  }
+  .batch-selector h4{font-size:0.9rem;margin-bottom:6px;color:var(--accent)}
+  .batch-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .batch-thumb{
+    width:60px;height:60px;border-radius:6px;object-fit:cover;
+    border:2px solid var(--border);cursor:pointer;transition:border-color 0.2s;
+  }
+  .batch-thumb.selected{border-color:var(--accent)}
+  .batch-thumb:hover{border-color:var(--text2)}
+
+  /* Results */
+  .results{margin-bottom:20px}
+  .results h3{font-size:1rem;margin-bottom:12px}
+  .preview-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;
+  }
+  .preview-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);overflow:hidden;
+  }
+  .preview-card .label{
+    font-size:0.75rem;font-weight:700;text-transform:uppercase;
+    padding:8px 12px;background:var(--surface2);letter-spacing:0.5px;
+  }
+  .preview-card .img-wrap{
+    position:relative;aspect-ratio:16/10;
+    display:flex;align-items:center;justify-content:center;
+    background:repeating-conic-gradient(#1a1a1a 0% 25%,#222 0% 50%) 50%/20px 20px;
+    overflow:hidden;
+  }
+  .preview-card .img-wrap img{max-width:100%;max-height:100%;object-fit:contain}
+  .preview-card .size{
+    font-size:0.8rem;padding:8px 12px;color:var(--text2);
+  }
+  .preview-card .size strong{color:var(--text)}
+  .savings{
+    text-align:center;padding:12px 16px;border-radius:var(--radius);
+    background:var(--surface);border:1px solid var(--border);
+    margin-bottom:16px;font-size:0.9rem;
+  }
+  .savings .pct{font-size:1.8rem;font-weight:800;color:var(--success)}
+  .savings .neg{color:var(--danger)}
+
+  /* Download all */
+  .download-all{
+    display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+    margin-bottom:24px;
+  }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;backdrop-filter:blur(4px);
+  }
+  .modal{
+    background:var(--surface);border-radius:var(--radius);
+    max-width:440px;width:100%;padding:28px 24px;text-align:center;
+    border:1px solid var(--border);animation:fadeIn 0.2s;
+  }
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .modal h2{font-size:1.3rem;margin-bottom:6px}
+  .modal .price{font-size:2rem;font-weight:800;color:var(--accent);margin:8px 0}
+  .modal ul{list-style:none;text-align:left;margin:16px 0;padding:0}
+  .modal ul li{padding:6px 0;font-size:0.9rem;display:flex;align-items:center;gap:8px}
+  .modal ul li::before{content:'✓';color:var(--success);font-weight:700}
+  .modal .close{
+    position:absolute;top:12px;right:16px;
+    background:none;border:none;color:var(--text2);
+    font-size:1.4rem;cursor:pointer;position:relative;
+  }
+  .modal{position:relative}
+  .modal .close{position:absolute;top:12px;right:16px}
+
+  /* Toast */
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--surface2);color:var(--text);padding:12px 24px;
+    border-radius:30px;font-size:0.85rem;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    z-index:200;animation:fadeIn 0.3s;
+  }
+
+  /* Hidden */
+  .hidden{display:none!important}
+
+  /* Responsive */
+  @media(max-width:600px){
+    .preview-grid{grid-template-columns:1fr}
+    .control-row{flex-direction:column;align-items:flex-start;gap:6px}
+    .control-row input[type=range]{width:100%}
+    .batch-gallery{justify-content:center}
+    .logo h1{font-size:1.15rem}
+    .dropzone{padding:28px 16px}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 36 36" fill="none"><rect x="6" y="4" width="16" height="28" rx="2" fill="var(--accent)" opacity="0.8"/><rect x="14" y="8" width="16" height="20" rx="2" fill="var(--accent)"/><circle cx="24" cy="18" r="3" fill="var(--surface)"/></svg>
+      <h1>Image<span>Opt</span></h1>
+    </div>
+    <span id="tierBadge" class="badge">Free</span>
+  </header>
+
+  <!-- Tier status bar -->
+  <div id="tierStatus" class="tier-status">
+    <p>🧪 <strong>Free tier</strong> — Compress single images at quality 10–100</p>
+    <button class="btn btn-accent btn-sm" onclick="showPremiumModal()">Upgrade $9</button>
+  </div>
+
+  <!-- Drop zone -->
+  <div id="dropzone" class="dropzone">
+    <input type="file" id="fileInput" accept="image/*" multiple>
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="10" width="36" height="28" rx="3"/><circle cx="17" cy="21" r="4"/><path d="M6 34l8-8 7 7 5-5 6 6"/></svg>
+    <h3>Drop images here or click to browse</h3>
+    <p id="dropHint">Supports JPEG, PNG, WebP, AVIF, BMP</p>
+  </div>
+
+  <!-- File list -->
+  <ul id="fileList" class="file-list hidden"></ul>
+
+  <!-- Batch preview (premium) -->
+  <div id="batchPanel" class="batch-selector hidden">
+    <h4>🖼️ Multiple images loaded — click to select one for preview</h4>
+    <div id="batchGallery" class="batch-gallery"></div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls" class="controls hidden">
+    <div class="control-row">
+      <label for="quality">Quality</label>
+      <input type="range" id="quality" min="10" max="100" value="80" step="1">
+      <span class="val" id="qualityVal">80</span>
+    </div>
+    <div class="control-row">
+      <label for="format">Format</label>
+      <select id="format"><option value="image/jpeg">JPEG</option><option value="image/webp">WebP</option><option value="image/png">PNG</option></select>
+      <span style="font-size:0.75rem;color:var(--text2);margin-left:auto" id="formatHint">JPEG is smallest</span>
+    </div>
+    <div class="control-row" style="margin-top:12px">
+      <button id="compressBtn" class="btn btn-accent" onclick="compressImages()">⚡ Compress</button>
+      <button id="clearBtn" class="btn btn-outline btn-sm" onclick="clearAll()">Clear all</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results" class="results hidden">
+    <h3>Results</h3>
+    <div class="preview-grid">
+      <div class="preview-card">
+        <div class="label">Original</div>
+        <div class="img-wrap"><img id="previewBefore" alt="Original"></div>
+        <div class="size" id="sizeBefore"></div>
+      </div>
+      <div class="preview-card">
+        <div class="label">Compressed</div>
+        <div class="img-wrap"><img id="previewAfter" alt="Compressed"></div>
+        <div class="size" id="sizeAfter"></div>
+      </div>
+    </div>
+    <div id="savingsBlock" class="savings hidden">
+      Saved <span class="pct" id="savingsPct"></span><br>
+      <span id="savingsDetail" style="font-size:0.85rem;color:var(--text2)"></span>
+    </div>
+    <div class="download-all">
+      <button id="downloadBtn" class="btn btn-accent" onclick="downloadCompressed()">⬇ Download compressed</button>
+    </div>
+  </div>
+
+  <!-- Batch results (premium) -->
+  <div id="batchResults" class="hidden" style="margin-bottom:20px">
+    <h3 style="margin-bottom:12px">📦 Batch results</h3>
+    <div id="batchResultList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="download-all" style="margin-top:14px">
+      <button class="btn btn-accent" onclick="downloadAllCompressed()">⬇ Download all compressed</button>
+    </div>
+  </div>
+</div>
+
+<!-- Premium Modal -->
+<div id="premiumModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="close" onclick="closePremiumModal()">✕</button>
+    <h2>🚀 Upgrade to Premium</h2>
+    <div class="price">$9</div>
+    <p style="color:var(--text2);font-size:0.85rem">One-time payment · Lifetime access</p>
+    <ul>
+      <li>Batch compress multiple images at once</li>
+      <li>PNG transparency preservation</li>
+      <li>Higher compression — quality slider down to 5</li>
+      <li>No watermarks or limits</li>
+      <li>Priority support</li>
+    </ul>
+    <a href="https://buy.stripe.com/6oU00la1xbg0bY4bbd1oI06" class="btn btn-accent" style="display:block;margin-top:12px">
+      💳 Upgrade Now — $9
+    </a>
+    <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="closePremiumModal()">Maybe later</button>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast" class="toast hidden"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────
+const state = {
+  isPremium: false,
+  files: [],          // {name, blob, size, url}
+  activeIndex: 0,     // Currently previewed file index
+  compressed: [],     // {name, blob, size, url, beforeSize, format}
+  batchIndex: 0,      // Selected batch image for preview
+};
+
+// ─── DOM refs ────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+// ─── Init ────────────────────────────────────────────────────────
+function init() {
+  const dz = $('dropzone');
+  const inp = $('fileInput');
+
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  inp.addEventListener('change', () => handleFiles(inp.files));
+
+  $('quality').addEventListener('input', function() {
+    $('qualityVal').textContent = this.value;
+  });
+
+  $('format').addEventListener('change', function() {
+    const hints = {
+      'image/jpeg': 'JPEG is smallest',
+      'image/webp': 'WebP — best balance',
+      'image/png': 'PNG — lossless, larger'
+    };
+    $('formatHint').textContent = hints[this.value] || '';
+  });
+}
+
+// ─── File handling ───────────────────────────────────────────────
+function handleFiles(fileList) {
+  const validTypes = ['image/jpeg','image/png','image/webp','image/avif','image/bmp','image/gif','image/tiff'];
+  const newFiles = Array.from(fileList).filter(f => validTypes.includes(f.type) || f.name.match(/\.(jpg|jpeg|png|webp|avif|bmp|gif|tiff)$/i));
+
+  if (!newFiles.length) {
+    toast('No valid image files selected');
+    return;
+  }
+
+  // Free tier: only 1 image
+  if (!state.isPremium && (state.files.length + newFiles.length) > 1) {
+    toast('Free tier supports 1 image. Upgrade to Premium for batch compression.');
+    if (state.files.length === 0) {
+      state.files = [newFiles[0]];
+    } else {
+      return;
+    }
+  } else if (!state.isPremium) {
+    state.files = [newFiles[0]];
+  } else {
+    // Premium: add up to 10 files
+    const available = 10 - state.files.length;
+    const toAdd = newFiles.slice(0, available);
+    state.files = state.files.concat(toAdd);
+    if (newFiles.length > available) toast(`Added ${toAdd.length} files (max 10).`);
+  }
+
+  state.activeIndex = 0;
+  state.compressed = [];
+  renderFileList();
+  renderBatchPanel();
+  updateUI();
+}
+
+function renderFileList() {
+  const list = $('fileList');
+  list.innerHTML = '';
+  if (!state.files.length) { list.classList.add('hidden'); return; }
+  list.classList.remove('hidden');
+
+  state.files.forEach((f, i) => {
+    const li = document.createElement('li');
+    li.className = 'file-item';
+    li.innerHTML = `
+      <img class="thumb" src="${f.url}" alt="">
+      <div class="info">
+        <div class="name">${escapeHtml(f.name)}</div>
+        <div class="meta">${formatSize(f.size)}</div>
+      </div>
+      <button class="remove" title="Remove" data-idx="${i}">×</button>
+    `;
+    li.querySelector('.remove').addEventListener('click', () => removeFile(i));
+    li.addEventListener('click', (e) => {
+      if (e.target.classList.contains('remove')) return;
+      state.activeIndex = i;
+      state.compressed = [];
+      updateUI();
+    });
+    list.appendChild(li);
+  });
+}
+
+function removeFile(i) {
+  URL.revokeObjectURL(state.files[i].url);
+  state.files.splice(i, 1);
+  state.compressed = [];
+  if (state.activeIndex >= state.files.length) state.activeIndex = Math.max(0, state.files.length - 1);
+  renderFileList();
+  renderBatchPanel();
+  updateUI();
+}
+
+function renderBatchPanel() {
+  const panel = $('batchPanel');
+  const gallery = $('batchGallery');
+  if (state.files.length <= 1) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  gallery.innerHTML = '';
+  state.files.forEach((f, i) => {
+    const img = document.createElement('img');
+    img.className = 'batch-thumb' + (i === state.batchIndex ? ' selected' : '');
+    img.src = f.url;
+    img.title = f.name;
+    img.addEventListener('click', () => {
+      state.batchIndex = i;
+      state.activeIndex = i;
+      state.compressed = [];
+      renderBatchPanel();
+      updateUI();
+    });
+    gallery.appendChild(img);
+  });
+}
+
+function clearAll() {
+  state.files.forEach(f => URL.revokeObjectURL(f.url));
+  state.files = [];
+  state.compressed = [];
+  state.activeIndex = 0;
+  state.batchIndex = 0;
+  renderFileList();
+  renderBatchPanel();
+  updateUI();
+  $('fileInput').value = '';
+}
+
+// ─── Compression ─────────────────────────────────────────────────
+async function compressImages() {
+  if (!state.files.length) { toast('Please add images first'); return; }
+
+  const quality = parseInt($('quality').value) / 100;
+  const format = $('format').value;
+  state.compressed = [];
+
+  const results = $('results');
+  const batchResults = $('batchResults');
+  results.classList.add('hidden');
+  batchResults.classList.add('hidden');
+
+  for (let i = 0; i < state.files.length; i++) {
+    const file = state.files[i];
+    try {
+      const compressed = await compressImage(file, quality, format);
+      state.compressed.push(compressed);
+    } catch (err) {
+      toast(`Failed to compress: ${file.name}`);
+      state.compressed.push(null);
+    }
+  }
+
+  renderResults();
+  renderBatchResults();
+}
+
+async function compressImage(file, quality, format) {
+  const img = await loadImage(file.url);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  ctx.drawImage(img, 0, 0);
+
+  let blob;
+  if (format === 'image/png') {
+    // PNG — quality doesn't apply the same way; use a two-step approach for real compression
+    // First try as PNG directly
+    blob = await canvasToBlob(canvas, 'image/png');
+  } else if (format === 'image/webp') {
+    blob = await canvasToBlob(canvas, 'image/webp', quality);
+  } else {
+    // JPEG — strip alpha
+    blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+  }
+
+  return {
+    name: getOutputName(file.name, format),
+    blob: blob,
+    size: blob.size,
+    url: URL.createObjectURL(blob),
+    beforeSize: file.size,
+    format: format
+  };
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(b => {
+      if (b) resolve(b);
+      else reject(new Error('toBlob failed'));
+    }, type, quality);
+  });
+}
+
+function getOutputName(name, format) {
+  const ext = format.split('/')[1];
+  const base = name.replace(/\.[^.]+$/, '');
+  return `${base}_compressed.${ext === 'jpeg' ? 'jpg' : ext}`;
+}
+
+// ─── Results rendering ───────────────────────────────────────────
+function renderResults() {
+  if (!state.compressed.length) return;
+  const c = state.compressed[state.activeIndex];
+  if (!c) return;
+
+  const f = state.files[state.activeIndex];
+  $('results').classList.remove('hidden');
+  $('previewBefore').src = f.url;
+  $('sizeBefore').innerHTML = `<strong>${f.name}</strong> · ${formatSize(f.size)} · ${getDimensions(f.url)}`;
+  $('previewAfter').src = c.url;
+  $('sizeAfter').innerHTML = `<strong>${c.name}</strong> · ${formatSize(c.size)}`;
+
+  const saved = f.size - c.size;
+  const pct = f.size > 0 ? ((saved / f.size) * 100).toFixed(1) : 0;
+  $('savingsBlock').classList.remove('hidden');
+  const pctEl = $('savingsPct');
+  pctEl.textContent = saved >= 0 ? `−${pct}%` : `+${Math.abs(pct)}%`;
+  pctEl.className = 'pct' + (saved >= 0 ? '' : ' neg');
+  $('savingsDetail').textContent = saved >= 0
+    ? `Reduced by ${formatSize(saved)}`
+    : `Increased by ${formatSize(Math.abs(saved))}`;
+}
+
+function renderBatchResults() {
+  if (!state.isPremium || state.compressed.length <= 1) {
+    $('batchResults').classList.add('hidden');
+    return;
+  }
+  $('batchResults').classList.remove('hidden');
+  const list = $('batchResultList');
+  list.innerHTML = '';
+  state.compressed.forEach((c, i) => {
+    if (!c) return;
+    const f = state.files[i];
+    const saved = f.size - c.size;
+    const pct = f.size > 0 ? ((saved / f.size) * 100).toFixed(1) : 0;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px';
+    row.innerHTML = `
+      <img src="${c.url}" style="width:40px;height:40px;border-radius:4px;object-fit:cover;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.name)}</div>
+        <div style="font-size:0.7rem;color:var(--text2)">${formatSize(f.size)} → ${formatSize(c.size)} · ${saved>=0?'−'+pct+'%':'+'+Math.abs(pct)+'%'}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" data-idx="${i}">⬇</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => downloadSingleCompressed(i));
+    list.appendChild(row);
+  });
+}
+
+function getDimensions(url) {
+  // Not computed synchronously; just return empty for now
+  return '';
+}
+
+// ─── Downloads ───────────────────────────────────────────────────
+function downloadCompressed() {
+  const c = state.compressed[state.activeIndex];
+  if (!c) { toast('Compress first'); return; }
+  triggerDownload(c.blob, c.name);
+}
+
+function downloadSingleCompressed(i) {
+  const c = state.compressed[i];
+  if (!c) return;
+  triggerDownload(c.blob, c.name);
+}
+
+function downloadAllCompressed() {
+  if (!state.compressed.length) return;
+  state.compressed.forEach(c => {
+    if (c) triggerDownload(c.blob, c.name);
+  });
+}
+
+function triggerDownload(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ─── Premium ─────────────────────────────────────────────────────
+function showPremiumModal() {
+  $('premiumModal').classList.remove('hidden');
+}
+
+function closePremiumModal() {
+  $('premiumModal').classList.add('hidden');
+}
+
+// Simulate premium activation (demo/toggle)
+function activatePremium() {
+  state.isPremium = true;
+  $('tierBadge').textContent = 'Premium';
+  $('tierBadge').className = 'badge premium';
+  $('tierStatus').innerHTML = `
+    <p>💎 <strong>Premium</strong> — Batch compress, PNG transparency, quality 5–100</p>
+    <span style="font-size:0.8rem;color:var(--accent)">Activated ✓</span>
+  `;
+  $('dropHint').textContent = 'Supports JPEG, PNG, WebP, AVIF, BMP — up to 10 images batch';
+  $('quality').min = 5;
+  $('quality').value = Math.max(5, parseInt($('quality').value));
+  $('qualityVal').textContent = $('quality').value;
+  toast('Premium activated! All features unlocked.');
+}
+
+// ─── UI helpers ──────────────────────────────────────────────────
+function updateUI() {
+  const hasFiles = state.files.length > 0;
+  $('controls').classList.toggle('hidden', !hasFiles);
+  if (!hasFiles) {
+    $('results').classList.add('hidden');
+    $('batchResults').classList.add('hidden');
+  }
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(2) + ' MB';
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.add('hidden'), 2500);
+}
+
+// ─── Keyboard shortcut for demo ──────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+    e.preventDefault();
+    activatePremium();
+  }
+});
+
+// ─── Bootstrap ───────────────────────────────────────────────────
+init();
+
+// Expose for inline onclick handlers
+window.showPremiumModal = showPremiumModal;
+window.closePremiumModal = closePremiumModal;
+window.compressImages = compressImages;
+window.clearAll = clearAll;
+window.downloadCompressed = downloadCompressed;
+window.downloadAllCompressed = downloadAllCompressed;
+</script>
+</body>
+</html>
